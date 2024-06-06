@@ -24,7 +24,10 @@ parser.add_argument('--layers', type=int, default=1)            # number of LSTM
 
 # assignment parameters
 parser.add_argument('--do', type=float, default=0)              # naive dropout rate
-parser.add_argument('--Adam', type=bool, default=False)              # naive dropout rate
+parser.add_argument('--var_do', type=float, default=0)          # variational dropout rate
+parser.add_argument('--Adam', type=bool, default=False)         # flag for using adam or SGD
+parser.add_argument('--wt', type=bool, default=False)           # flag for weight tying
+parser.add_argument('--nt', type=bool, default=False)           # flag for ntavgsgd 
 
 # parameters for visualization / recording results
 parser.add_argument('--plot', type=bool, default=False)         # flag for plotting ppl
@@ -33,11 +36,21 @@ parser.add_argument('--model_name', type=str, default=None)     # flag for savin
 
 args = parser.parse_args()
 
+
+try:
+    check_args(args)
+except ValueError as ve:
+    print(f"[*] Error: {ve}")
+    print("[*] Exiting...")
+    exit(0)
+
+
 #############
 # LOAD DATA #
 #############
 
 train_loader, dev_loader, test_loader, lang = load_data(args.batch)
+print(len(lang.word2id))
 
 #####################
 # INSTANTIATE MODEL #
@@ -75,6 +88,7 @@ else:
     optimizer = optim.SGD(model.parameters(), lr = args.lr)
 
 ppls = []
+state_dicts = []
 criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
 criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
 clip = 5
@@ -95,8 +109,8 @@ try:
                 patience -= 1
             if patience <= 0: 
                 break 
+            state_dicts.append(model.state_dict())
             ppls.append(ppl_dev)
-
 except KeyboardInterrupt:
     print("[*] exiting training...")
     if best_model is not None:
@@ -108,9 +122,23 @@ except KeyboardInterrupt:
                 f.write(str(ppl) + '\n')
     exit(0)
         
+
+############
+# NtAvgSGD #
+############
+
+if args.nt and not args.Adam:
+    n = 5 # as suggested by paper
+    best_model.load_state_dict(nt_avg_sdg_weights(state_dicts[n:], ppls[n:]))
+
 ###########
 # LOGGING #
 ###########
+
+if args.plot:
+    import matplotlib.pyplot as plt
+    plt.plot([i for i in range(epoch-1)], ppls)
+    plt.show()
 
 if args.ppl_filename:
     with open(args.ppl_filename, 'w') as f:

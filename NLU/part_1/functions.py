@@ -2,7 +2,7 @@ import torch
 import os
 import torch.nn as nn
 from sklearn.metrics import f1_score
-
+import numpy as np
 
 device = 'cuda:0'
 os.environ['CUDA_LAUNCH_BLOCKING']= "1" 

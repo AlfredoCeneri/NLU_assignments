@@ -50,8 +50,6 @@ model = LM_LSTM(
     vocab_len, 
     pad_index=lang.word2id["<pad>"], 
     naive_dropout = args.do,
-    variational_dropout = args.var_do,
-    weight_tying = args.wt,
     n_layers= args.layers
     ).to(DEVICE)
 
